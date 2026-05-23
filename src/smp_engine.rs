@@ -455,15 +455,8 @@ mod tests {
     use crate::bitboard::Board;
 
     #[test]
-    fn test_start_position() {
-        let board = Board::from_str_engine_second(
-            ". . . . . . .
-             . . . . . . .
-             . . . . . . .
-             . . . X . . .
-             . . . O . . .
-             . O . X . . X"
-        );
+    fn test_start_position_engine_first() {
+        let board = Board::starting_board(true);
 
         board.display();
 
@@ -478,6 +471,107 @@ mod tests {
 
         println!("Best Moves: {:?}", engine.best_moves(&board));
 
-        assert_eq!(eval, 0, "Game should be a draw, got eval={}", eval);
+        assert_eq!(eval, 19, "Game should be a draw, got eval={}", eval);
+    }
+
+    #[test]
+    fn test_start_position_engine_second() {
+        let board = Board::starting_board(false);
+
+        board.display();
+
+        let engine = SmpEngine::new();
+        let (eval, _) = engine.solve(&board);
+
+        assert_eq!(eval, -10, "Game should be a draw, got eval={}", eval);
+    }
+
+    #[test]
+    fn test_solve_losing_position() {
+        let board = Board::from_str_engine_first(
+            "
+            . . . . . . .
+            . . . . . . .
+            . . . . . . O
+            . . . . . O O
+            . . . . . O O
+            X X X . X X X"
+        );
+
+        let engine = SmpEngine::new();
+        let (eval, _) = engine.solve(&board);
+        assert_eq!(eval, -(MAX_EVAL - 12), "X should be in a winning position, got score={}", eval);
+    }
+
+    #[test]
+    fn test_solve_winning_position() {
+        let board = Board::from_str_engine_first(
+            ". . . . . . .
+         . . . . . . .
+         . . . . . . .
+         . . . . . . .
+         . . . . . . .
+         X X X . O O O"
+        );
+
+        let engine = SmpEngine::new();
+        let (eval, _) = engine.solve(&board);
+
+        assert_eq!(eval, MAX_EVAL - 6, "X should be in a winning position, got score={}", eval);
+    }
+
+
+    #[test]
+    fn test_solve_push_up_win() {
+        let board = Board::from_str_engine_first(
+            "
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . X X . . .
+            . X O O . . .
+            X O O O . . X"
+        );
+
+        let engine = SmpEngine::new();
+        let (eval, _) = engine.solve(&board);
+
+        assert_eq!(eval, MAX_EVAL - 10, "X should have a forced win from this position, got score={}", eval);
+    }
+
+    #[test]
+    fn test_maximizing_draw_is_best() {
+        let board = Board::from_str_engine_first(
+            "
+            X X O O X X O
+            O O X X O O X
+            X X O O X X O
+            O O X X O O X
+            X X O O X X O
+            O O X X O O X"
+        );
+
+        let engine = SmpEngine::new();
+        let (eval, _) = engine.solve(&board);
+
+        assert_eq!(eval, TOTAL_CELLS as i8, "Should be optimal draw, got score={}", eval);
+    }
+
+    #[test]
+    fn test_minimizing_draw_is_worst() {
+        let board = Board::from_str_engine_second(
+            "
+            X X O O X X O
+            O O X X O O X
+            X X O O X X O
+            O O X X O O X
+            X X O O X X O
+            O O X X O O X"
+        );
+
+        let engine = SmpEngine::new();
+        let (eval, _) = engine.solve(&board);
+
+        assert_eq!(eval, -(TOTAL_CELLS as i8), "X should have a forced win from this position, got score={}", eval);
     }
 }
