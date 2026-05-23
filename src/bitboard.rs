@@ -188,6 +188,17 @@ impl Board {
         })
     }
 
+    pub fn starting_board() -> Board {
+        Board::from_str(
+            ". . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . ."
+        )
+    }
+
     /// Encode a board from a string for testing.
     ///
     /// The string must contain exactly 6 rows and 7 columns of cells separated
@@ -290,5 +301,282 @@ impl Board {
             println!("|");
         }
         println!("  0 1 2 3 4 5 6");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_empty_board_no_win() {
+        let board = Board::starting_board();
+
+        assert!(!board.current_player_connect4());
+        assert!(!board.last_player_connect4());
+    }
+
+    #[test]
+    fn test_column_fills_and_blocks() {
+        let mut board = Board::starting_board();
+
+        for _ in 0..6 {
+            assert_eq!(board.play(0), MoveResult::Ok);
+        }
+
+        assert!(board.is_col_full(0));
+        assert_eq!(board.play(0), MoveResult::ColumnFull);
+    }
+
+    #[test]
+    fn test_vertical_win() {
+        let mut board = Board::starting_board();
+
+        for _ in 0..3 {
+            assert_eq!(board.play(0), MoveResult::Ok);
+            assert_eq!(board.play(1), MoveResult::Ok);
+        }
+
+        assert_eq!(board.play(0), MoveResult::Ok);
+        assert!(board.last_player_connect4(), "Expected vertical win");
+    }
+
+    #[test]
+    fn test_horizontal_win() {
+        let mut board = Board::starting_board();
+        for col in 0..3 {
+            assert_eq!(board.play(col), MoveResult::Ok);
+            assert_eq!(board.play(6), MoveResult::Ok);
+        }
+        assert_eq!(board.play(3), MoveResult::Ok);
+        assert!(board.last_player_connect4(), "Expected horizontal win");
+    }
+
+    #[test]
+    fn test_key_uniqueness_simple() {
+        let mut b0 = Board::starting_board();
+        let mut b1 = Board::starting_board();
+        b0.play(0);
+        b1.play(1);
+        assert_ne!(b0.key(), b1.key());
+    }
+
+    #[test]
+    fn test_from_str_empty_board() {
+        let board = Board::from_str(
+            "
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . ."
+        );
+
+        assert_eq!(board.current,      0);
+        assert_eq!(board.opponent,     0);
+        assert_eq!(board.moves_played, 0);
+    }
+
+    #[test]
+    fn test_from_str_x_moves_first_equal_counts() {
+        let board = Board::from_str(
+            "
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            X . . . O . ."
+        );
+
+        assert_eq!(board.moves_played, 2);
+
+        let x_bit = 0 * COL_STRIDE + 0;
+        assert_eq!(board.current  & (1 << x_bit), 1 << x_bit, "X should be current");
+
+        let o_bit = 4 * COL_STRIDE + 0;
+        assert_eq!(board.opponent & (1 << o_bit), 1 << o_bit, "O should be opponent");
+    }
+
+    #[test]
+    fn test_from_str_o_moves_next_when_one_fewer() {
+        let board = Board::from_str(
+            "
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            X X . . O . ."
+        );
+
+        assert_eq!(board.moves_played, 3);
+
+        let o_bit = 4 * COL_STRIDE + 0;
+        assert_eq!(board.current & (1 << o_bit), 1 << o_bit, "O should be current");
+    }
+
+    #[test]
+    fn test_from_str_row_ordering() {
+        let board = Board::from_str(
+            "
+            X . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . ."
+        );
+
+        let top_bit = 0 * COL_STRIDE + 5;
+        assert_eq!(board.opponent & (1 << top_bit), 1 << top_bit, "X should be at row 5 in opponent");
+
+        let bot_bit = 0 * COL_STRIDE + 0;
+        assert_eq!(board.opponent & (1 << bot_bit), 0, "row 0 should be empty");
+        assert_eq!(board.current  & (1 << bot_bit), 0, "row 0 should be empty");
+    }
+
+    #[test]
+    fn test_from_str_vertical_win_detected() {
+        let board = Board::from_str(
+            "
+            . . . . . . .
+            . . . . . . .
+            X . . . . . .
+            X . . . . . O
+            X . . . . . O
+            X . . . . . O"
+        );
+        assert!(board.last_player_connect4(), "X should have 4 in a column");
+    }
+
+    #[test]
+    fn test_moves_played_counter() {
+        let mut board = Board::starting_board();
+        assert_eq!(board.moves_played, 0);
+
+        board.play(0);
+        assert_eq!(board.moves_played, 1);
+
+        board.play(1);
+        assert_eq!(board.moves_played, 2);
+    }
+
+    #[test]
+    fn test_simultaneous_connect4() {
+        let board = Board::from_str(
+            "
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . . . . . . .
+            . X X X . . .
+            . O O O X . ."
+        );
+
+        let mut board = board;
+        board.play(4);
+
+        board.display();
+
+        assert!(board.current_player_connect4() && board.last_player_connect4(),
+                "Expected simultaneous connect4");
+    }
+
+    #[test]
+    fn test_diagonal_win_forward() {
+        let board = Board::from_str(
+            "
+            . . . . . . .
+            . . . . . . .
+            . . . X . . .
+            . . X O . . .
+            . X O O . . .
+            X O O X . . ."
+        );
+
+        assert!(board.current_player_connect4(), "Expected forward diagonal win for X");
+    }
+
+    #[test]
+    fn test_diagonal_win_backward() {
+        let board = Board::from_str(
+            "
+            . . . . . . .
+            . . . . . . .
+            . . . X . . .
+            . . X O . . .
+            . X O O . . .
+            X O X O . . ."
+        );
+
+        assert!(board.current_player_connect4(), "Expected backward diagonal win for X");
+    }
+
+    #[test]
+    fn test_key_symmetric_positions_equal() {
+        let mut b0 = Board::starting_board();
+        let mut b1 = Board::starting_board();
+        b0.play(0);
+        b1.play(6);
+        assert_eq!(b0.key(), b1.key(), "Mirrored positions should share a key");
+    }
+
+    #[test]
+    fn test_full_board_no_win_is_not_win() {
+        let board = Board::from_str(
+            "
+            X X O O X X O
+            O O X X O O X
+            X X O O X X O
+            O O X X O O X
+            X X O O X X O
+            O O X X O O X"
+        );
+
+        assert!(!board.current_player_connect4());
+        assert!(!board.last_player_connect4());
+        assert_eq!(board.moves_played, 42);
+    }
+
+    #[test]
+    fn test_push_shifts_pieces_up() {
+        let mut board = Board::starting_board();
+        board.play(0);
+        board.play(1);
+        board.play(0);
+
+        let row1_bit = 0 * COL_STRIDE + 1;
+        assert_eq!(board.opponent & (1 << row1_bit), 1 << row1_bit,
+                   "X should have been pushed to row 1");
+    }
+
+    #[test]
+    fn test_no_valid_moves_when_full() {
+        let mut board = Board::starting_board();
+
+        for _ in 0..6 {
+            for col in 0..7u32 {
+                board.play(col);
+            }
+        }
+        assert!(board.next_positions_ordered(&[0, 1, 2, 3, 4, 5, 6]).next().is_none(),
+                "No moves should be available on a full board");
+    }
+
+    #[test]
+    fn test_sentinel_never_set_after_many_moves() {
+        let sentinel_mask: u64 = (0..7u32).fold(0, |acc, col| acc | (1u64 << (col * 7 + 6)));
+        let mut board = Board::starting_board();
+
+        for _ in 0..5 {
+            for col in 0..7u32 {
+                board.play(col);
+            }
+        }
+
+        assert_eq!(board.current & sentinel_mask, 0);
+        assert_eq!(board.opponent & sentinel_mask, 0);
     }
 }

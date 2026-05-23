@@ -12,14 +12,7 @@ fn read_line() -> String {
 }
 
 fn main() {
-    let mut board = Board::from_str(
-        ". . . . . . .
-         . . . . . . .
-         . . . . . . .
-         . . . . . . .
-         . . . . . . .
-         . . . . . . ."
-    );
+    let mut board = Board::starting_board();
 
     let engine = SmpEngine::new();
 
