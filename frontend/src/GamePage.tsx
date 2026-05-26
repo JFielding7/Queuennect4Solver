@@ -1,20 +1,16 @@
-import { useState } from 'react';
-import {Stack, Group, Button, Text, Box, ScrollArea, Flex} from '@mantine/core';
+import { Stack, Group, Button, Text, Box, ScrollArea, Flex, Divider } from '@mantine/core';
 import { Board } from './Board';
 import { StatusBar } from './StatusBar';
-import { PlayerOrderModal } from './PlayerOrderModal';
-import { useGameState } from './useGameState';
+import {type MoveRecord, useGameState} from './useGameState';
 
-export function GamePage() {
-    const { grid, status, winningCells, moveHistory, startGame, handleColumnClick } = useGameState();
-    const [showModal, setShowModal] = useState(true);
+export function GamePage({onNavigateToSandbox, onNavigateToAnalyze}: {
+    onNavigateToSandbox: () => void,
+    onNavigateToAnalyze: (history: MoveRecord[]) => void
+}) {
+    const { grid, status, playerOrder, winningCells, moveHistory, startGame, resetGame, handleColumnClick } = useGameState();
 
-    function handleNewGame() {
-        setShowModal(true);
-    }
-
-    const boardDisabled = status !== 'player-turn';
-    const isGameInProgress = status === 'player-turn' || status === 'engine-turn';
+    const boardDisabled = status !== 'player-turn' || playerOrder === null;
+    const isGameInProgress = playerOrder !== null && (status === 'player-turn' || status === 'engine-turn');
 
     const pairedMoves = [];
     for (let i = 0; i < moveHistory.length; i += 2) {
@@ -36,15 +32,6 @@ export function GamePage() {
                 padding: '2rem',
             }}
         >
-            {showModal && (
-                <PlayerOrderModal
-                    onChoose={(order) => {
-                        setShowModal(false);
-                        startGame(order);
-                    }}
-                />
-            )}
-
             <Stack align="center" gap="xl">
                 <Stack align="center" gap={4}>
                     <Text
@@ -62,7 +49,7 @@ export function GamePage() {
                     </Text>
                 </Stack>
 
-                <StatusBar status={status} />
+                <StatusBar status={status} playerOrder={playerOrder} />
 
                 <Flex
                     direction={{ base: 'column', md: 'row' }}
@@ -104,11 +91,13 @@ export function GamePage() {
                                     pairedMoves.map((pair, index) => (
                                         <Group key={index} wrap="nowrap" gap="sm">
                                             <Text size="xs" c="#6b7a99" style={{ minWidth: 20 }}>{pair.turn}.</Text>
-                                            <Text size="sm" fw={500} style={{ width: 24, textAlign: 'center' }} c={pair.first.player === 'player' ? '#ef4444' : '#facc15'}>
+
+                                            <Text size="sm" fw={500} style={{ width: 24, textAlign: 'center' }} c={pair.first.piece === 'red' ? '#ef4444' : '#facc15'}>
                                                 {String.fromCharCode(65 + pair.first.col)}
                                             </Text>
+
                                             {pair.second && (
-                                                <Text size="sm" fw={500} style={{ width: 24, textAlign: 'center' }} c={pair.second.player === 'player' ? '#ef4444' : '#facc15'}>
+                                                <Text size="sm" fw={500} style={{ width: 24, textAlign: 'center' }} c={pair.second.piece === 'red' ? '#ef4444' : '#facc15'}>
                                                     {String.fromCharCode(65 + pair.second.col)}
                                                 </Text>
                                             )}
@@ -120,22 +109,71 @@ export function GamePage() {
                     </Box>
                 </Flex>
 
-                <Button
-                    size="sm"
-                    onClick={handleNewGame}
-                    styles={{
-                        root: {
-                            visibility: showModal ? 'hidden' : 'visible',
-                            backgroundColor: isGameInProgress ? '#ef4444' : '#1d4ed8',
-                            borderColor: isGameInProgress ? '#dc2626' : '#2563eb',
-                            '&:hover': {
-                                backgroundColor: isGameInProgress ? '#b91c1c' : '#2563eb'
-                            },
-                        },
-                    }}
-                >
-                    {isGameInProgress ? 'Rage quit' : 'New game'}
-                </Button>
+                <Stack align="center" gap="md" mt="sm">
+
+                    {isGameInProgress ? (
+                        <Button
+                            variant="outline"
+                            color="red"
+                            size="sm"
+                            onClick={resetGame}
+                        >
+                            Rage quit
+                        </Button>
+                    ) : (
+                        <Stack align="center" gap="xs">
+                            <Text size="xs" fw={600} c="#6b7a99" style={{ textTransform: 'uppercase' }}>
+                                Start New Game
+                            </Text>
+                            <Group>
+                                <Button
+                                    color="red"
+                                    onClick={() => startGame('first')}
+                                    styles={{ root: { backgroundColor: '#ef4444', color: '#ffffff' } }}
+                                >
+                                    Play First (Red)
+                                </Button>
+                                <Button
+                                    color="yellow"
+                                    onClick={() => startGame('second')}
+                                    styles={{ root: { backgroundColor: '#facc15', color: '#000000' } }}
+                                >
+                                    Play Second (Yellow)
+                                </Button>
+                            </Group>
+
+                            {moveHistory.length > 0 && (
+                                <Button
+                                    mt="sm"
+                                    color="indigo"
+                                    onClick={() => onNavigateToAnalyze(moveHistory)}
+                                >
+                                    Analyze Game
+                                </Button>
+                            )}
+                        </Stack>
+                    )}
+
+                    <Box style={{ width: '100%', maxWidth: 300, padding: '12px 0' }}>
+                        <Divider color="#252f42" />
+                    </Box>
+
+                    <Button
+                        variant="outline"
+                        color="gray"
+                        size="md"
+                        onClick={onNavigateToSandbox}
+                        styles={{
+                            root: {
+                                borderColor: '#4a5568',
+                                color: '#e8edf5',
+                                '&:hover': { backgroundColor: '#1c2535' }
+                            }
+                        }}
+                    >
+                        Enter Engine Sandbox
+                    </Button>
+                </Stack>
             </Stack>
         </Box>
     );

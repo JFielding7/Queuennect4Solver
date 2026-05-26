@@ -168,6 +168,17 @@ impl Board {
         normal_key.min(Self::reverse_key(normal_key))
     }
 
+    pub fn next_positions_with_col<'a>(&'a self) -> impl Iterator<Item = (u32, Board)> + 'a {
+        (0..COLS).filter_map(|col| {
+            if self.is_col_full(col) {
+                return None;
+            }
+            let mut next = *self;
+            next.play(col);
+            Some((col, next))
+        })
+    }
+
     pub fn next_positions_ordered<'a>(&'a self, order: &'a [u32]) -> impl Iterator<Item = Board> + 'a {
         order.iter().filter_map(|&col| {
             if self.is_col_full(col) {
@@ -324,14 +335,11 @@ impl Board {
         let x_count = chars.iter().filter(|&&c| c == 'X').count() as i32;
         let o_count = chars.iter().filter(|&&c| c == 'O').count() as i32;
 
-        // X (engine) goes first when counts are equal; O (human) goes first when
-        // there is exactly one more O than X (meaning O moved first and has one
-        // more piece on the board).
         let is_engine_first = match x_count - o_count {
-            0  => true,   // equal counts → engine (X) is next → engine went first
-            -1 => false,  // one extra O  → human  (O) is next → human  went first
-            diff => return Err(format!(
-                "invalid piece counts: X={} O={} (difference must be 0 or -1)",
+            0  => true,
+            1 => false,
+            _ => return Err(format!(
+                "invalid piece counts: X={} O={} (difference must be 0 or 1)",
                 x_count, o_count
             )),
         };
@@ -339,9 +347,8 @@ impl Board {
         let mut x_bits = 0u64;
         let mut o_bits = 0u64;
 
-        // chars[i]: row = i / COLS (0 = bottom), col = i % COLS
         for (i, &c) in chars.iter().enumerate() {
-            let board_row = (i as u32) / COLS;   // 0 = bottom, 5 = top
+            let board_row = (i as u32) / COLS;
             let col       = (i as u32) % COLS;
             let bit       = col * COL_STRIDE + board_row;
             match c {
@@ -351,12 +358,9 @@ impl Board {
             }
         }
 
-        // X is engine. Determine current/opponent from whose turn it is.
-        let (current, opponent) = if is_engine_first == (x_count == o_count) {
-            // Engine moves next → current = X
+        let (current, opponent) = if is_engine_first {
             (x_bits, o_bits)
         } else {
-            // Human moves next → current = O
             (o_bits, x_bits)
         };
 

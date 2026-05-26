@@ -7,10 +7,12 @@ interface BoardProps {
     disabled?: boolean;
     onColumnClick: (col: number) => void;
     winningCells?: { col: number; row: number }[] | null;
+    onCellClick?: (col: number, row: number) => void;
+    evals?: (number | null)[];
+    highlightCell?: { col: number; row: number; color: string };
 }
 
-export function Board({ grid, disabled = false, onColumnClick, winningCells }: BoardProps) {
-    const getWinningRowsForCol = (colIndex: number) => {
+export function Board({ grid, disabled = false, onColumnClick, winningCells, onCellClick, evals, highlightCell }: BoardProps) {    const getWinningRowsForCol = (colIndex: number) => {
         if (!winningCells) return [];
         return winningCells
             .map((cell, index) => cell.col === colIndex ? { row: cell.row, winIndex: index } : null)
@@ -54,6 +56,8 @@ export function Board({ grid, disabled = false, onColumnClick, winningCells }: B
                             disabled={disabled}
                             onClick={onColumnClick}
                             winningRows={getWinningRowsForCol(colIndex)}
+                            onCellClick={onCellClick}
+                            highlightRow={highlightCell?.col === colIndex ? { row: highlightCell.row, color: highlightCell.color } : undefined}
                         />
                     ))}
                 </Group>
@@ -75,6 +79,22 @@ export function Board({ grid, disabled = false, onColumnClick, winningCells }: B
                     </Text>
                 ))}
             </Group>
+
+            {evals && (
+                <Group gap={8} wrap="nowrap">
+                    {evals.map((score, colIndex) => (
+                        <Text
+                            key={`eval-${colIndex}`}
+                            size="sm"
+                            fw={700}
+                            c={score !== null ? (score > 0 ? '#10b981' : score < 0 ? '#ef4444' : '#6b7a99') : 'transparent'}
+                            style={{ width: 62, textAlign: 'center' }}
+                        >
+                            {score !== null ? (score > 0 ? `+${score}` : score) : '-'}
+                        </Text>
+                    ))}
+                </Group>
+            )}
         </Stack>
     );
 }

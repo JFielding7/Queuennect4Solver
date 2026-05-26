@@ -1,4 +1,5 @@
 import { Group, Box, Text } from '@mantine/core';
+import type {PlayerOrder} from "./useGameState.ts";
 
 export type GameStatus =
     | 'player-turn'
@@ -17,6 +18,7 @@ const STATUS_LABEL: Record<GameStatus, string> = {
 
 interface StatusBarProps {
     status: GameStatus;
+    playerOrder: PlayerOrder | null;
 }
 
 function PlayerPill({ label, dotColor, active }: { label: string; dotColor: string; active: boolean }) {
@@ -34,11 +36,13 @@ function Divider() {
     return <Box style={{ width: 1, height: 16, backgroundColor: '#252f42' }} />;
 }
 
-export function StatusBar({ status }: StatusBarProps) {
+export function StatusBar({ status, playerOrder }: StatusBarProps) {
     const isGameInProgress = status === 'player-turn' || status === 'engine-turn';
-
     const playerActive = isGameInProgress || status === 'player-win' || status === 'draw';
     const engineActive = isGameInProgress || status === 'engine-win' || status === 'draw';
+
+    const humanColor = playerOrder === 'second' ? '#facc15' : '#ef4444';
+    const engineColor = playerOrder === 'second' ? '#ef4444' : '#facc15';
 
     return (
         <Group
@@ -50,7 +54,7 @@ export function StatusBar({ status }: StatusBarProps) {
                 padding: '10px 20px',
             }}
         >
-            <PlayerPill label="You" dotColor="#ef4444" active={playerActive} />
+            <PlayerPill label="You" dotColor={humanColor} active={playerActive} />
 
             <Divider />
 
@@ -61,7 +65,7 @@ export function StatusBar({ status }: StatusBarProps) {
                 </>
             )}
 
-            <PlayerPill label="Engine" dotColor="#facc15" active={engineActive} />
+            <PlayerPill label="Engine" dotColor={engineColor} active={engineActive} />
         </Group>
     );
 }

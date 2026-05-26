@@ -57,11 +57,47 @@ async fn best_moves(
         });
     }
 
+    board.display();
+
     let engine = state.engine.lock().unwrap();
     let (eval, _nodes) = engine.solve(&board);
     let best_moves = engine.best_moves(&board);
 
     HttpResponse::Ok().json(BestMovesResponse { best_moves, eval })
+}
+
+async fn evaluate_moves(
+    state: web::Data<AppState>,
+    body: web::Json<BoardRequest>,
+) -> HttpResponse {
+    let board = match Board::from_str_flat(&body.board) {
+        Ok(b)  => b,
+        Err(e) => return HttpResponse::BadRequest().json(ErrorResponse { error: e }),
+    };
+
+    if board.moves_played == TOTAL_CELLS {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "Board is already full".into(),
+        });
+    }
+    if board.last_player_connect4() || board.current_player_connect4() {
+        return HttpResponse::BadRequest().json(ErrorResponse {
+            error: "Game is already over".into(),
+        });
+    }
+
+    let engine = state.engine.lock().unwrap();
+    let mut evals: Vec<Option<i8>> = vec![None; 7];
+
+    board.display();
+
+    for (col, next) in board.next_positions_with_col() {
+        next.display();
+        let (next_eval, _nodes) = engine.solve(&next);
+        evals[col as usize] = Some(-next_eval);
+    }
+
+    HttpResponse::Ok().json(evals)
 }
 
 /// GET /api/health
@@ -91,6 +127,7 @@ async fn main() -> std::io::Result<()> {
             .app_data(data.clone())
             .route("/api/health",     web::get().to(health))
             .route("/api/best_moves", web::post().to(best_moves))
+            .route("/api/evaluate_moves", web::post().to(evaluate_moves))
     })
         .bind("127.0.0.1:8080")?
         .run()

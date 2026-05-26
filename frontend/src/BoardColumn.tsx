@@ -8,10 +8,11 @@ interface BoardColumnProps {
     disabled?: boolean;
     onClick: (col: number) => void;
     winningRows?: { row: number, winIndex: number }[];
+    onCellClick?: (col: number, row: number) => void;
+    highlightRow?: { row: number, color: string };
 }
 
-export function BoardColumn({ cells, colIndex, disabled = false, onClick, winningRows }: BoardColumnProps) {
-    const [hovered, setHovered] = useState(false);
+export function BoardColumn({ cells, colIndex, disabled = false, onClick, winningRows, onCellClick, highlightRow }: BoardColumnProps) {    const [hovered, setHovered] = useState(false);
 
     return (
         <UnstyledButton
@@ -52,6 +53,11 @@ export function BoardColumn({ cells, colIndex, disabled = false, onClick, winnin
                             key={i}
                             state={state}
                             winIndex={winData?.winIndex}
+                            onClick={onCellClick ? (e) => {
+                                e.stopPropagation();
+                                onCellClick(colIndex, row);
+                            } : undefined}
+                            highlightColor={highlightRow?.row === row ? highlightRow.color : undefined}
                         />
                     );
                 })}

@@ -1,5 +1,4 @@
 use std::collections::VecDeque;
-use std::i8::MAX;
 use std::sync::{Arc, mpsc};
 use std::sync::atomic::{AtomicBool, Ordering};
 use dashmap::DashMap;
@@ -17,15 +16,16 @@ const TRANSPOSITION_TABLE_MASK: u64 = (TRANSPOSITION_TABLE_SIZE - 1) as u64;
 const TRANSPOSITION_TABLE_ALL_WAY_MAX_DEPTH: u32 = 18;
 
 const MIN_EVAL: i8 = -MAX_EVAL;
-const MAX_EVAL: i8 = (TOTAL_CELLS << 1) as i8;
+const MAX_EVAL: i8 = TOTAL_CELLS as i8;
 
 
 #[inline]
 fn win_eval(moves_played: u32) -> i8 {
-    MAX_EVAL - moves_played as i8
+    MAX_EVAL - moves_played as i8 - 1
 }
 
-
+/// For making engine drag out drawing games as long as possible
+/// Not too useful in practice as it also limits best move options
 #[inline]
 fn draw_eval(moves_played: u32, is_engine_first: bool) -> i8 {
     let first_player_turn = (moves_played & 1) == 0;
@@ -106,8 +106,8 @@ impl ArrayCache {
 
 
 struct ThreadLocalTranspositionTable {
-    shared:      SharedCache,
-    array:       ArrayCache,
+    shared_cache:      SharedCache,
+    array_cache:       ArrayCache,
     all_way_max_depth: u32,
 }
 
@@ -115,18 +115,18 @@ impl ThreadLocalTranspositionTable {
     #[inline]
     fn store(&mut self, key: u64, bound: Bound, moves_played: u32) {
         if moves_played <= self.all_way_max_depth {
-            shared_cache_store(&self.shared, key, bound);
+            shared_cache_store(&self.shared_cache, key, bound)
         } else {
-            self.array.store(key, bound);
+            self.array_cache.store(key, bound);
         }
     }
 
     #[inline]
     fn get(&self, key: u64, moves_played: u32) -> Option<Bound> {
         if moves_played <= self.all_way_max_depth {
-            shared_cache_get(&self.shared, key)
+            shared_cache_get(&self.shared_cache, key)
         } else {
-            self.array.get(key)
+            self.array_cache.get(key)
         }
     }
 }
@@ -149,12 +149,12 @@ fn evaluate_position(
     let curr_conn4 = board.current_player_connect4();
     let opp_conn4  = board.last_player_connect4();
 
-    if curr_conn4 && opp_conn4 { return draw_eval(board.moves_played, board.is_engine_first); }
-    if curr_conn4 { return win_eval(board.moves_played - 2); }
+    if curr_conn4 && opp_conn4 { return 0 }
+    if curr_conn4 { return win_eval(board.moves_played - 1); }
     if opp_conn4  { return -win_eval(board.moves_played - 1); }
 
     // must come after checks above
-    if board.moves_played == TOTAL_CELLS { return draw_eval(TOTAL_CELLS, board.is_engine_first); }
+    if board.moves_played == TOTAL_CELLS { return 0 }
 
     for next in board.next_positions_ordered(&DEFAULT_MOVE_ORDER) {
         if !next.current_player_connect4() && next.last_player_connect4() {
@@ -298,19 +298,19 @@ struct WorkerResult {
 /// all moves, accumulating the Transposition Table knowledge throughout the game.
 pub struct SmpEngine {
     /// Shared all-way associative cache, reused across all solve() calls.
-    shared: SharedCache,
-    /// One sender per worker thread — used to dispatch tasks.
+    shared_cache: SharedCache,
+    /// One sender per worker thread - used to dispatch tasks.
     worker_txs: Vec<mpsc::SyncSender<WorkerTask>>,
     /// Receiver for results from workers.
     result_rx: mpsc::Receiver<WorkerResult>,
-    /// Terminate flag shared with all workers — set when master finishes.
+    /// Terminate flag shared with all workers - set when master finishes.
     terminate: Arc<AtomicBool>,
 }
 
 impl SmpEngine {
     /// Create the engine and spawn all helper threads.
     pub fn new() -> Self {
-        let shared: SharedCache = Arc::new(DashMap::new());
+        let shared_cache: SharedCache = Arc::new(DashMap::new());
         let terminate = Arc::new(AtomicBool::new(false));
 
         let (result_tx, result_rx) = mpsc::channel::<WorkerResult>();
@@ -321,15 +321,15 @@ impl SmpEngine {
             let (task_tx, task_rx) = mpsc::sync_channel::<WorkerTask>(1);
             worker_txs.push(task_tx);
 
-            let shared  = Arc::clone(&shared);
+            let shared_cache = Arc::clone(&shared_cache);
             let terminate = Arc::clone(&terminate);
             let result_tx = result_tx.clone();
 
             std::thread::spawn(move || {
 
                 let mut transposition_table = ThreadLocalTranspositionTable {
-                    shared,
-                    array: ArrayCache::new(),
+                    shared_cache,
+                    array_cache: ArrayCache::new(),
                     all_way_max_depth: TRANSPOSITION_TABLE_ALL_WAY_MAX_DEPTH,
                 };
 
@@ -356,7 +356,7 @@ impl SmpEngine {
         }//97912323
 
         SmpEngine {
-            shared,
+            shared_cache,
             worker_txs,
             result_rx,
             terminate
@@ -389,8 +389,8 @@ impl SmpEngine {
 
     fn thread_local_transposition_table(&self) -> ThreadLocalTranspositionTable {
         ThreadLocalTranspositionTable {
-            shared: Arc::clone(&self.shared),
-            array: ArrayCache::new(),
+            shared_cache: Arc::clone(&self.shared_cache),
+            array_cache: ArrayCache::new(),
             all_way_max_depth: TRANSPOSITION_TABLE_ALL_WAY_MAX_DEPTH,
         }
     }
