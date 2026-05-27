@@ -1,4 +1,4 @@
-# Queuennect 4 & Engine Analyzer
+# Queuennect 4 Solver
 
 A full-stack application with Rust backend and a React frontend
 
