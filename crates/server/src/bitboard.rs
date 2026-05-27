@@ -399,6 +399,10 @@ impl Board {
         (x_bits, o_bits)
     }
 
+    pub fn is_game_over(&self) -> bool {
+        self.moves_played == TOTAL_CELLS || self.last_player_connect4() || self.current_player_connect4()
+    }
+
     pub fn display(&self) {
         let (x_bits, o_bits) = if self.moves_played % 2 == 0 {
             // X is current (even moves played, X moves next)

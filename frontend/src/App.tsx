@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { MantineProvider } from '@mantine/core';
 import '@mantine/core/styles.css';
-import { GamePage } from './GamePage';
-import { SandboxPage } from './SandboxPage';
-import { AnalysisPage } from './AnalysisPage';
-import type { MoveRecord } from './useGameState';
+import { GamePage } from './components/game_page/GamePage.tsx';
+import { SandboxPage } from './components/sandbox/SandboxPage.tsx';
+import { AnalysisPage } from './components/game_analysis/AnalysisPage.tsx';
+import type { MoveRecord } from './hooks/useGameState.ts';
 
 type ViewState =
     | { page: 'game' }

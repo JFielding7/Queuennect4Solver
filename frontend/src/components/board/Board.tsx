@@ -1,6 +1,6 @@
 import { Group, Box, Stack, Text } from '@mantine/core';
-import { BoardColumn } from './BoardColumn';
-import { type CellState } from './Cell';
+import { BoardColumn } from './BoardColumn.tsx';
+import { type CellState } from './Cell.tsx';
 
 interface BoardProps {
     grid: CellState[][];

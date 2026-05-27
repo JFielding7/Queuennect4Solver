@@ -8,6 +8,7 @@ mod smp_engine;
 
 use bitboard::{Board, TOTAL_CELLS};
 use smp_engine::SmpEngine;
+use crate::bitboard::COLS;
 
 struct AppState {
     engine: Mutex<SmpEngine>,
@@ -46,12 +47,7 @@ async fn best_moves(
         Err(e) => return HttpResponse::BadRequest().json(ErrorResponse { error: e }),
     };
 
-    if board.moves_played == TOTAL_CELLS {
-        return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "Board is already full".into(),
-        });
-    }
-    if board.last_player_connect4() || board.current_player_connect4() {
+    if board.is_game_over() {
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "Game is already over".into(),
         });
@@ -77,20 +73,14 @@ async fn evaluate_moves(
         Err(e) => return HttpResponse::BadRequest().json(ErrorResponse { error: e }),
     };
 
-    if board.moves_played == TOTAL_CELLS {
-        return HttpResponse::BadRequest().json(ErrorResponse {
-            error: "Board is already full".into(),
-        });
-    }
-    if board.last_player_connect4() || board.current_player_connect4() {
-        println!("Game Already Over");
+    if board.is_game_over() {
         return HttpResponse::BadRequest().json(ErrorResponse {
             error: "Game is already over".into(),
         });
     }
 
     let engine = state.engine.lock().unwrap();
-    let mut evals: Vec<Option<i8>> = vec![None; 7];
+    let mut evals: Vec<Option<i8>> = vec![None; COLS as usize];
 
     board.display();
 
@@ -99,6 +89,46 @@ async fn evaluate_moves(
         let (next_eval, _nodes) = engine.solve(&next);
         evals[col as usize] = Some(-next_eval);
     }
+
+    HttpResponse::Ok().json(evals)
+}
+
+async fn evaluate_all_boards(
+    state: web::Data<AppState>,
+    body: web::Json<Vec<BoardRequest>>,
+) -> HttpResponse {
+    let requests = body.into_inner();
+
+    let engine = state.engine.lock().unwrap();
+
+    let mut evals = Vec::with_capacity(requests.len());
+
+    for board_req in requests {
+        let board = match Board::from_str_flat(&board_req.board) {
+            Ok(b)  => b,
+            Err(e) => {
+                println!("All Boards error");
+                return HttpResponse::BadRequest().json(ErrorResponse { error: e })
+            },
+        };
+
+        if board.is_game_over() {
+            println!("Game is already over");
+            evals.push(vec![None; 7]);
+            continue;
+        }
+
+        let mut curr_evals = vec![None; COLS as usize];
+
+        for (col, next) in board.next_positions_with_col() {
+            let (next_eval, _nodes) = engine.solve(&next);
+            curr_evals[col as usize] = Some(-next_eval);
+        }
+
+        evals.push(curr_evals);
+    }
+
+    println!("All Boards ok");
 
     HttpResponse::Ok().json(evals)
 }
@@ -131,6 +161,7 @@ async fn main() -> std::io::Result<()> {
             .route("/api/health",     web::get().to(health))
             .route("/api/best_moves", web::post().to(best_moves))
             .route("/api/evaluate_moves", web::post().to(evaluate_moves))
+            .route("/api/evaluate_all_boards", web::post().to(evaluate_all_boards))
     })
         .bind("127.0.0.1:8080")?
         .run()

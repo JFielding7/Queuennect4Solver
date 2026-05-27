@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Stack, Box, UnstyledButton } from '@mantine/core';
-import { Cell, type CellState } from './Cell';
+import { Cell, type CellState } from './Cell.tsx';
 
 interface BoardColumnProps {
     cells: CellState[];

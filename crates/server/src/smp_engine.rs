@@ -164,7 +164,6 @@ fn evaluate_position(
 
     for next in board.next_positions_ordered(&DEFAULT_MOVE_ORDER) {
         if !next.current_player_connect4() && next.last_player_connect4() {
-            // println!("Won here");
             return win_eval(board.moves_played);
         }
     }

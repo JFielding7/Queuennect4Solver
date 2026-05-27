@@ -1,5 +1,5 @@
 import { Group, Box, Text } from '@mantine/core';
-import type {PlayerOrder} from "./useGameState.ts";
+import type {PlayerOrder} from "../../hooks/useGameState.ts";
 
 export type GameStatus =
     | 'player-turn'

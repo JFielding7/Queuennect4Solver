@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import type { CellState } from './Cell';
-import type { GameStatus } from './StatusBar';
+import type { CellState } from '../components/board/Cell.tsx';
+import type { GameStatus } from '../components/game_page/StatusBar.tsx';
 
 export const COLS = 7;
 export const ROWS = 6;
