@@ -29,7 +29,7 @@ export function gridToFlatString(grid: CellState[][]): string {
     return s;
 }
 
-export function checkWin(grid: CellState[][], piece: CellState): { col: number, row: number }[] | null {
+export function checkConnect4(grid: CellState[][], piece: CellState): { col: number, row: number }[] | null {
     for (let row = 0; row < ROWS; row++) {
         for (let col = 0; col <= COLS - 4; col++) {
             if (grid[col][row] === piece && grid[col+1][row] === piece &&
@@ -62,19 +62,30 @@ export function checkWin(grid: CellState[][], piece: CellState): { col: number, 
 }
 
 export function playPiece(grid: CellState[][], col: number, piece: CellState): CellState[][] | null {
-    if (grid[col][ROWS - 1] !== 'empty') return null;
-    const next = grid.map(c => [...c]);
-    for (let row = ROWS - 2; row >= 0; row--) {
-        if (next[col][row] !== 'empty' && (row == 0 || next[col][row - 1] !== 'empty')) {
-            next[col][row + 1] = next[col][row];
-        }
+    let firstEmptyRow = 0;
+    while (firstEmptyRow < ROWS && grid[col][firstEmptyRow] !== 'empty') {
+        firstEmptyRow++;
     }
+
+    if (firstEmptyRow === ROWS) return null;
+
+    const next = grid.map(c => [...c]);
+
+    for (let row = firstEmptyRow - 1; row >= 0; row--) {
+        next[col][row + 1] = next[col][row];
+    }
+
     next[col][0] = piece;
+
     return next;
 }
 
 export function isBoardFull(grid: CellState[][]): boolean {
     return grid.every(col => col[ROWS - 1] !== 'empty');
+}
+
+export function isGameOver(grid: CellState[][]): boolean {
+    return checkConnect4(grid, 'red') != null || checkConnect4(grid, 'yellow') != null || isBoardFull(grid);
 }
 
 async function fetchBestMoves(grid: CellState[][]): Promise<number[]> {
@@ -119,8 +130,8 @@ export function useGameState(): GameState {
             const next = playPiece(currentGrid, col, enginePiece);
             if (!next) return;
 
-            const engineWins = checkWin(next, enginePiece);
-            const playerWins = checkWin(next, humanPiece);
+            const engineWins = checkConnect4(next, enginePiece);
+            const playerWins = checkConnect4(next, humanPiece);
 
             setGrid(next);
             setMoveHistory(prev => [...prev, { by: 'engine', piece: enginePiece, col }]);
@@ -177,8 +188,8 @@ export function useGameState(): GameState {
         const next = playPiece(grid, col, hPiece);
         if (!next) return;
 
-        const playerWins = checkWin(next, hPiece);
-        const engineWins = checkWin(next, ePiece);
+        const playerWins = checkConnect4(next, hPiece);
+        const engineWins = checkConnect4(next, ePiece);
 
         setGrid(next);
         setMoveHistory(prev => [...prev, { by: 'player', piece: hPiece, col }]);

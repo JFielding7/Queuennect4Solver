@@ -1,20 +1,27 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Stack, Button, Text, Box, Flex } from '@mantine/core';
 import { Board } from '../board/Board.tsx';
-import { emptyGrid, playPiece, gridToFlatString, checkWin, isBoardFull } from '../../hooks/useGameState.ts';
+import {
+    emptyGrid,
+    playPiece,
+    gridToFlatString,
+    checkConnect4,
+    isBoardFull,
+    isGameOver, COLS
+} from '../../hooks/useGameState.ts';
 import type { MoveRecord } from '../../hooks/useGameState.ts';
 import type { CellState } from "../board/Cell.tsx";
-import {MoveClassificationBadge} from "./MoveClassificationBadge.tsx";
-import {PlaybackControls} from "./PlaybackControls.tsx";
-import {getClassification} from "./MoveClassification.ts";
-import {MoveHistorySidebar} from "./MoveHistorySidebar.tsx";
+import { MoveClassificationBadge } from "./MoveClassificationBadge.tsx";
+import { PlaybackControls } from "./PlaybackControls.tsx";
+import { getClassification } from "./MoveClassification.ts";
+import { MoveHistorySidebar } from "./MoveHistorySidebar.tsx";
 
 interface AnalysisPageProps {
     initialHistory: MoveRecord[];
     onNavigate: () => void;
 }
 
-export function AnalysisPage({initialHistory, onNavigate }: AnalysisPageProps) {
+export function AnalysisPage({ initialHistory, onNavigate }: AnalysisPageProps) {
     const [activeLine, setActiveLine] = useState<MoveRecord[]>(initialHistory);
     const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
     const [divergenceIndex, setDivergenceIndex] = useState<number | null>(null);
@@ -34,8 +41,21 @@ export function AnalysisPage({initialHistory, onNavigate }: AnalysisPageProps) {
     const currentBoard = boardStates[currentMoveIndex];
     const isExploring = activeLine !== initialHistory;
 
+    const isFullyEvaluated = useMemo(() => {
+        for (const boardObj of boardStates) {
+            if (isGameOver(boardObj)) {
+                continue;
+            }
+            const boardStr = gridToFlatString(boardObj);
+            if (!evalCache[boardStr]) {
+                return false;
+            }
+        }
+        return true;
+    }, [boardStates, evalCache]);
+
     function handleBoardClick(col: number) {
-        if (checkWin(currentBoard, 'red') || checkWin(currentBoard, 'yellow') || isBoardFull(currentBoard)) return;
+        if (isGameOver(currentBoard)) return;
 
         const nextPiece: CellState = currentMoveIndex % 2 === 0 ? 'red' : 'yellow';
 
@@ -67,7 +87,7 @@ export function AnalysisPage({initialHistory, onNavigate }: AnalysisPageProps) {
             const missingStrs: string[] = [];
 
             for (const boardObj of boardStates) {
-                if (checkWin(boardObj, 'red') || checkWin(boardObj, 'yellow') || isBoardFull(boardObj)) {
+                if (isGameOver(boardObj)) {
                     continue;
                 }
 
@@ -144,6 +164,17 @@ export function AnalysisPage({initialHistory, onNavigate }: AnalysisPageProps) {
                 classificationColor = '#ef4444';
             }
 
+            let redConnect4 = checkConnect4(currentBoard, 'red');
+            let yellowConnect4 = checkConnect4(currentBoard, 'yellow');
+
+            if (redConnect4 && !yellowConnect4) {
+                classificationStr += '. Red won.';
+            } else if (!redConnect4 && yellowConnect4) {
+                classificationStr += '. Yellow won.';
+            } else if ((redConnect4 && yellowConnect4) || isBoardFull(currentBoard)) {
+                classificationStr += ". It's a draw.";
+            }
+
             highlightCell = { col: playedMove.col, row: 0, color: classificationColor };
         } else {
             classificationStr = 'Analyzing...';
@@ -183,16 +214,24 @@ export function AnalysisPage({initialHistory, onNavigate }: AnalysisPageProps) {
                             <Board
                                 grid={currentBoard}
                                 onColumnClick={handleBoardClick}
-                                evals={evalCache[gridToFlatString(currentBoard)] || Array(7).fill(null)}
+                                evals={evalCache[gridToFlatString(currentBoard)] || Array(COLS).fill(null)}
                                 highlightCell={highlightCell}
                             />
                         </Box>
 
-                        <PlaybackControls
-                            currentIndex={currentMoveIndex}
-                            maxIndex={activeLine.length}
-                            onChange={setCurrentMoveIndex}
-                        />
+                        <Box style={{ minHeight: 48, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {isFullyEvaluated ? (
+                                <PlaybackControls
+                                    currentIndex={currentMoveIndex}
+                                    maxIndex={activeLine.length}
+                                    onChange={setCurrentMoveIndex}
+                                />
+                            ) : (
+                                <Text size="sm" c="#6b7a99" mt="sm">
+                                    Preparing Analysis...
+                                </Text>
+                            )}
+                        </Box>
                     </Stack>
 
                     <MoveHistorySidebar
